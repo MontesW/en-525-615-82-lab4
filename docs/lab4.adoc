@@ -19,7 +19,7 @@ WARNING:  This is the first revision of this lab. There may be _some_ bugs. Ask 
 
 == Accept the GitHub Classroom Assignment link
 
-The GitHub Classroom Assignment for this Lab can be found here: https://classroom.github.com/a/Ej1yhL-s
+The GitHub Classroom Assignment for this Lab can be found here: https://classroom.github.com/a/aZgGOTA8
 
 == Overview
 
