@@ -1,0 +1,335 @@
+:toc:
+:toclevels: 5
+:sectnums:
+:sectnumlevels: 5
+:icons: font
+:source-highlighter: highlight.js
+
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+
+= EN.525.615 - Lab 4 Assignment
+
+WARNING:  This is the first revision of this lab. There may be _some_ bugs. Ask questions as needed in the `Lab 4 Discussion` area.
+
+== Accept the GitHub Classroom Assignment link
+
+The GitHub Classroom Assignment for this Lab can be found here: https://classroom.github.com/a/Ej1yhL-s
+
+== Overview
+
+The objective for the labs 3 and 4 will be to create a full-featured alarm clock. This will exercise your C programming skills, and also your familiarity with the WB55 development board and its peripherals such as timers and serial interfaces.
+
+In this lab you will expand upon lab 3  by switching from the relatively simple UART interface to an LCD for displaying time and also use a I2S DAC/Speaker combo for the alarm buzzing.
+
+The information in this lab depends on the information already provided in lab 3. Please refer to that lab document for anything related to the earlier setup work.
+
+IMPORTANT: Read the entire lab document! There is a lot of overlap between the two documents so it may be easy to miss new material. I have tried to make the new material as obvious as possible, but it is your responsibility to read the entire lab and to get in touch with us if you don't understand something.
+
+=== Requirements
+
+The requirements are the same from lab 3 except now you will be implementing additional features, including the LCD display and audible alarm.
+
+Your alarm clock shall:
+
+* Keep time accurately to the second
+* Keep track of the date
+** Accurately know the number of days in each month
+** Accurately track the day of the week
+** Properly calculate leap years and number of days in February
+* Display the current time and date to the user (24-hour "Military" style)
+** With the UART - *Lab 3*
+** With the LCD - *Lab 4*
+* Be settable by the user
+** Keypad to enter numerical settings like time/day/year
+** A push button for "snoozing" - Meaning a way to temporarily delay the alarm after it has gone off
+** A push button for acknowledging the alarm
+* Be programmable with *at least* two separate alarm times
+* Have a way to alarm the user
+** Visibly - With a blinking LED - *Lab 3*
+** Aurally - With a loud buzzing sound from a speaker with adjustable volume - *Lab 4*
+
+There is some leeway on how exactly you implement these features. This is a common task in engineering, you are given a list of requirements and you must figure out the best way to put them into practice. This lab assignment will lay out some example design patterns but ultimately it is up to you to implement these features. Feel free to start discussions in the forum to discuss this with other students and the instructors.
+
+==== Specific Lab 4 requirements
+
+This section lists the specific requirements for this lab so as not to be confused with what was required in Lab 3. Your lab setup must still meet the requirements of lab 3, meaning this are in addition to what was already done previously. The exception being that UART Display and LED Alarm are now optional.
+
+1. Interface to the LCD using SPI and use it to display the date, time, and set alarms (plus anything else you want to show)
+* You must also set the brightness through the use pulse width modulation (PWM) of the lite pin (this does not have to be changeable at runtime, for instance using a `#define` setting for a brightness value is sufficient)
+2. Interface to the DAC using I2S and use it to play an alarm tone
+* This tone must be more complicated than a simple square wave; triangle, sawtooth, sine are acceptable as is more complicated tones
+3. Add an additional snooze mode
+* On a long press of the snooze button, the alarm must snooze for *twice* as long as a short button press
+4. Interface the Rotary Encoder for varying the volume of your alarm
+
+There is an additional requirement of using the ADALM2000 to show the interfaces are working properly. You must:
+
+1. Show that the I2S and SPI interfaces are working properly by using the logic analyzer mode of the ADALM2000 to capture data transfers over these interfaces
+2. Show that your audio output looks correct by using the oscilloscope mode of the ADALM2000 to observe the output of the MAX98357
+* Note that depending on how you probe this signal, you may accidently alter the impedance of the load causing the output to not look right (think about how you would fix this)
+
+In both cases, including screenshots of this in your lab report fulfills the requirement.
+
+This requirement is to help you get better at using test equipment. If you properly instrument your hardware early and often, you can save a lot of debugging later.
+
+==== Extra Credit
+
+TIP: Optionally, you can add whatever *additional* features you like to this. If you implement features above and beyond this baseline we will add extra credit equivalent to the effort/creativity put in to them. You can not get over 100, but what the extra credit will do is allow you lose points in some other areas and still make it possible to get a perfect score. The maximum extra points available is *10 points*, so one full letter grade. To get this max amount the features added must be exceptional.
+
+An example for Lab 4: Have the alarm play musical notes (hint: this will be useful later) or use the touchscreen on the LCD as a pushbutton (this will require hooking up extra LCD pins).
+
+== Hardware Setup
+
+=== Parts list
+
+You should still have everything from lab 3 built, so this list is what you need *in addition* to what you already have. Hopefully you left room on your breadboard.
+
+Here are the required parts that you will need from your kit for this lab:
+
+* LCD
+* I2S DAC Amplifier Combo
+* Speaker
+* Rotary Encoder
+
+=== Hardware Assembly and Setup
+
+You should still have your lab 3 setup assembled. All of the hardware used in this lab will be in addition to the hardware you set up last time.
+
+==== 3.2" LCD with ILI9341 Driver
+
+LCD's are typically tricky to drive, but with the provided breakout board much of the complexity is taken care of already. This device presents a standard SPI interface that is straightforward to control from a microcontroller.
+
+Hardware wise there are a few things that *must* be hooked up:
+
+1. Power and Ground
+* Make sure to use 3.3 Volts from the microcontroller
+2. SPI Interface including pins MOSI, MISO, Chip Select, Clock
+* It is up to you to locate appropriate pins for this interface since you must find the correct pins that can be configured to the SPI alternate function, this may mean moving some pins around from lab 3
+3. Control Lines including Data/Control and Reset
+* These pins are used to tell the LCD whether you are sending display data or command, and for resetting the LCD respectively and are both standard GPIO
+4. Lite
+* This sets the brightness of the screen, use a PWM capable pin to drive this
+
+The function of these pins will be explored more in the lab setup section.
+
+Pins that can be *ignored*:
+
+1. IM3,IM2,IM1,IM0
+* These set the mode of the LCD and have been preconfigured for you through the use of solder bridges
+2. 3.3V Out
+* This is an output from an on board voltage regulator and is not needed
+3. Card Detect, and Card CS
+* This is for the on board SD card which we are not using
+
+==== MAX98357 I2S Amp Breakout Board
+
+This board has a I2S driven Digital Analog Converter and audio amplifier combination chip on it which greatly simplifies generating audio signals from a microcontroller.
+
+Just like the LCD, hardware wise there are a few things that *must* be hooked up:
+
+1. Power and Ground
+* Make sure to connect Vin to the *5.0* volts from the microcontroller
+** We are still using 3.3V logic - this setup will give more power for the amp.
+2. I2S Signals
+* LRC (Left/Right Clock) - this is the pin that tells the amplifier when the data is for the left channel and when its for the right channel
+* BCLK (Bit Clock) - This is the pin that tells the amplifier when to read data on the data pin.
+* DIN (Data In) - This is the pin that has the actual data coming in, both left and right data are sent on this pin, the LRC pin indicates when left or right is being transmitted
+* Note: The MAX98357 doesn't require a Master Clock
+* Just like the LCD it is up to you to locate appropriate pins for this interface since you must find the pins that can be configured to the I2S alternate function
+
+
+And some that do not need to be hooked up:
+1. Mode
+* The breakout board by design puts this in stereo average which is what we want
+2. Gain
+* Gain refers to how much amplification the signal will get and by default it is set to 9 dB which is reasonable for this lab. If you experience excessive distortion or other similar issues than consider lowering the gain by jumpering this to Vin
+* Table 8 in the MAX98357 datasheet lists all gain configurations
+
+
+==== Amplifier and Speaker
+
+In your kit you will have a 1 Watt 8Ω speaker. This is connected to the screw terminal on the breakout board. Make sure to pay attention to the polarity of the speaker when doing this (Red wire to `+`, Black wire to `-`).
+
+==== Rotary Encoder
+
+The rotary encoder in your kit is of the incremental style, which means it provides relative angular position of the knob. It does this by providing two signals consisting of square waves in quadrature. These square waves can be measured by the microntroller to see which direction and by how much the knob is turned.
+
+
+===== Rotary Encoder Theory
+
+A rotary encoder has a fixed number of positions per revolution.
+These positions are easily felt as small 'clicks' or 'detents' as you turn the encoder.
+Not every rotary encoder had detents and not all are a one-to-one with encoder resolution and the detents.
+
+
+On one side of the switch there are three pins.
+They are normally referred to as A, B and C.
+In the case of the KY-040, they are oriented as shown.
+
+image::images\lab4-c7763.png[]
+
+
+Inside the encoder there are two switches.
+One switch connects pin A to pin C and the other switch connects pin B to C (see schematic in KY-040 Rotary Encoder Pinout)
+
+In the case of the KY-040 each 'detents' puts the switches in a state where both switches are open or both switches are closed.
+
+However, as you can see in the image below, inbetween the 'detents' switch A will lead or follow switch B depending on the direction of rotation.
+
+
+image::images\lab4-4e167.png[]
+
+
+* Rotating the switch clockwise will cause the switch connecting A and C to change states first.
+* Rotating the switch counterclockwise will cause the switch connecting B and C to change states first.
+
+If we were to represent the opening an closing of the switches as wave forms, it would look something like this.
+
+
+image::images\lab4-820e8.png[]
+
+Essentially, determining which switch changed states first is how the direction of rotation is determined.
+
+If A changed states first, the switch is rotating in a clockwise direction.
+If B changed states first, the switch is rotating in a counter clockwise direction.
+
+
+Credit: http://henrysbench.capnfatz.com/henrys-bench/arduino-sensors-and-input/keyes-ky-040-arduino-rotary-encoder-user-manual/
+
+===== KY-040 Rotary Encoder Pinout
+
+image::images\lab4-b37d8.png[]
+
+image::images\lab4-87ceb.png[]
+
+NOTE: R2 and R3 Provide 10K pullups for our encoder pins.  R1 (for the switch) is not populated on our KY-040 Board
+
+
+It has five pins:
+
+1. Power (+)
+* Make sure to feed it the IO voltage level and not 5 volts
+2. Ground
+3. Clk and DT
+* These are the two signal lines and must be connected to Timer channel pins (more on this later)
+4. SW
+* This is a pin for pushbutton that is activated when you push the knob
+* It is not required to use this functionality unless you need an extra pushbutton
+
+
+
+
+== Lab Setup
+
+Build off from your STM32CubeIDE project from lab 3 as a base.
+
+You will have to manually copy the files into your new git repository.
+There are ways to keep the commit history of this work in a new repository, but this is not required.
+
+
+=== Interfacing with the LCD
+
+The basic idea for interfacing with the LCD is that it uses a standard SPI interface with some extra control used for various functions. The screen itself is complicated to drive so it uses an ILI9341 chip to do the heavy lifting. Since the ILI9341 is what is actually interfacing to the LCD you must read the datasheet on it to fully understand what sort of features you have access to.
+
+Refer to the datasheet in reference 8 for more in depth information. Also, reference 9 contains an example implementation for interfacing with the LCD, but if you use it make sure to properly attribute it in your lab report.
+
+
+==== Example Driver / Workspace
+
+There are many different example drivers avaiable on the internet for this LCD.
+We have included links to a few of them in the References section below.
+Additionally we have provide a sample in this repository.
+
+NOTE: The use of the include sample driver is completely optional.
+
+The included driver is a hybrid of a few different drivers and some custom logic.
+It works, but it should be refactored some to make it cleaner.
+See the `reference\ili9341-dev` area at the top of this repository.
+
+
+==== SPI
+
+SPI is a synchronous serial interface, which is fast enough to be used for a huge variety of peripherals. For the LCD there are just a few things to consider when implenting your system:
+
+1. Clock phase and polarity - These settings tell the microcontroller how to sample the data coming in over the data lines. They much match the settings on the device you are trying to talk to.
+* If you are using HAL, then the correct settings for the SPI are SPI_POLARITY_LOW and SPI_PHASE_1EDGE for polarity and phase respectively
+2. Clock speed - Ultimately, interface speed is the result of several settings across different parts of the microcontroller. How you set the up the clock generation, and clock sourcing set the clock speed going into the SPI peripheral, and the peripheral itself has a clock divider setting for slowing down the rate set by this input clock.
+* Set this as fast as you can while still having it work (meaning start slow and work your way up)
+3. Chip select settings - Since SPI is a shared bus, you have to tell a peripheral that you are ready to talk to it. This is done with a GPIO typically called Chip Select (CS). This GPIO can be either handled by the SPI peripheral (i.e. Hardware CS) or manually in your code (i.e. Software CS).
+* For this project you want to use software chip select due to the specifics of driving this chip (see the datasheet for more info)
+
+These issues are a common cause for problems when setting a SPI interface up. Other things to check if you are having issues is the wiring (don't mix up MOSI and MISO !), and make sure your chip select is "firing" correctly. Use your ADALM2000 to measure these signals to help you debug.
+
+=== Interfacing with the MAX98357 I2S Amp Breakout
+
+The MAX98357 breakout board in your kit has a combination Digital to Analog Converter (DAC) and audio amplifier. Since this device is specifically for audio signals it uses the I2S protocol which is a simplified purpose built protocol for connecting to audio devices. The STM32 has support for this interface through its Serial Audio Interface (SAI) peripheral.
+
+==== I2S
+
+The Serial audio interface (outlined section 36 in RM0434) is the peripheral in the STM32 that supports the I2S interface. When using the device configuration tool, configure one of the SAI peripherals (A or B, which one doesn't matter) to use the I2S/PCM protocol.
+
+NOTE: Read the SAI section in RM0434 to see how to optimally use this peripheral. Since you are using relatively simple samples (e.g. pure sine wave, or triangle wave) you want to use the DMA mode. Your samples can live in a buffer in memory and be repeatedly transferred automatically by the SAI peripheral.
+
+=== UART Interfacing
+
+Feel free to continue to use the UART for debugging purposes, but you must still output all relevant information to the LCD.
+
+=== GPIO Interfacing
+
+You will need to use a timer to determine if a button press is short or long. You may decide what the cut off amount of time is, but you must have two distinct button press outcomes for at least one of the push buttons.
+
+==== Rotary Encoder
+
+Interfacing with the rotary encoder also uses GPIO, but is somewhat of a special case.
+The encoders CLK and DT pins should be wired to pins that have an alternate function capable of driving the timer peripheral channels.
+These are labeled TIMn_CH0 and TIMn_CH1, where n is the timer you are using.
+The encoder (for this development board anyway) always uses the first two channels of the timer.
+
+In the device configurator, select one of the Timers and set it to "Encoder Mode" under the "Combined Channels" drop down box.
+You will see that two pins will be assigned in the Pin out View.
+Make sure these are correct (or set them yourself if you want to use different pins).
+Once it has been configured, you read the count register of the Timer to get the position of the knob.
+
+For this lab you will use this position value to scale your audio samples for adjusting the volume.
+
+=== FreeRTOS usage
+
+FreeRTOS usage is *encouraged* but optional. This is a pretty good application for it (keeping time is definitely a real-time class of problem) but it will be harder to implement so try not to get trapped with a design at the last second that doesn't work and needs to be rewritten from scratch.
+
+<<<
+
+== References
+
+1. More on keypad matrix theory with some great animations http://pcbheaven.com/wikipages/How_Key_Matrices_Works/[here]
+
+2. User manual for the Nucleo-WB55 containing useful information on how to interface to the board itself: https://www.st.com/resource/en/user_manual/dm00517423-bluetooth-low-energy-and-802154-nucleo-pack-based-on-stm32wb-series-microcontrollers-stmicroelectronics.pdf[UM2435]
+
+3. Reference manual for the WB55 containing in depth information about how to program the chip including it's peripherals https://www.st.com/content/ccc/resource/technical/document/reference_manual/group0/83/cf/94/7a/35/a9/43/58/DM00318631/files/DM00318631.pdf/jcr:content/translations/en.DM00318631.pdf[RM0434]
+
+4. Always make use of example code when you can (just make sure to attribute it in your lab report). The full suite of official WB55 code, including drivers and example code, can be found https://github.com/STMicroelectronics/STM32CubeWB/[here]
+
+5. How to use `printf()` with stm32 outlined https://shawnhymel.com/1873/how-to-use-printf-on-stm32/[here]
+
+6. Basic timer explanation (but do NOT neglect to read the actual documentation in RM0434) https://www.youtube.com/watch?v=DyyYaGU4biY[STM32 Timers]
+
+7. Adafruit tutorial on the LCD https://learn.adafruit.com/adafruit-2-8-and-3-2-color-tft-touchscreen-breakout-v2[here]
+
+8. LCD Driver chip datasheet https://cdn-shop.adafruit.com/datasheets/ILI9341.pdf[here]
+
+9. LCD ILI9341 example code https://github.com/martnak/STM32-ILI9341[here]
+
+10. Adafruit turorial on the Audio Amplifier and DAC https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp[here]
+
+11. Rotary Encoder Guide https://lastminuteengineers.com/rotary-encoder-arduino-tutorial/[here]
+
+12. I2S example code  https://github.com/afiskon/stm32-i2s-examples[here]
+
+13. Complete firmware for STM32 WB55 including example code for each peripheral  https://github.com/STMicroelectronics/STM32CubeWB[here]
+
+14. STM32CubeWB BSP https://github.com/STMicroelectronics/STM32CubeWB[here]
