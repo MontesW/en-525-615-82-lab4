@@ -1,4 +1,4 @@
-# JHU EN-525-615 Lab 3
+# JHU EN-525-615 Lab 4
 
 This repository contains the Lab 3 assignment material for the course.
 
