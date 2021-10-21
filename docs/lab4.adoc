@@ -17,7 +17,7 @@ endif::[]
 
 WARNING:  This is the first revision of this lab. There may be _some_ bugs. Ask questions as needed in the `Lab 4 Discussion` area.
 
-This lab assignment is worth 50 points.
+This lab assignment is worth 70 points.
 
 == Accept the GitHub Classroom Assignment link
 
