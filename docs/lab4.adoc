@@ -23,286 +23,157 @@ The GitHub Classroom Assignment for this Lab can be found here: https://classroo
 
 == Overview
 
-The objective for the labs 3 and 4 will be to create a full-featured alarm clock. This will exercise your C programming skills, and also your familiarity with the WB55 development board and its peripherals such as timers and serial interfaces.
+In this lab, you will learn how to use the UART through the USB port.  We will turn this into a debugging terminal, where you can send debugging information, print statements, etc.
 
-In this lab you will expand upon lab 3  by switching from the relatively simple UART interface to an LCD for displaying time and also use a I2S DAC/Speaker combo for the alarm buzzing.
+IMPORTANT: Read the entire lab document!  Make a plan before tackling any part of the lab assignment.
 
-The information in this lab depends on the information already provided in lab 3. Please refer to that lab document for anything related to the earlier setup work.
+== Parts list
 
-IMPORTANT: Read the entire lab document! There is a lot of overlap between the two documents so it may be easy to miss new material. I have tried to make the new material as obvious as possible, but it is your responsibility to read the entire lab and to get in touch with us if you don't understand something.
+* STM32WB55 Development Board
+* (2) micro-USB to USB-A cables
+* breadboard
+* 4x4 matrix keypad
+* ADALM2000 O-scope board
 
-=== Requirements
+== Set Up
 
-The requirements are the same from lab 3 except now you will be implementing additional features, including the LCD display and audible alarm.
+* Grab your repo from GitHub for this Assignment
+* Start up STM32 and make sure to point to this repo's workspace
+* Make sure your lab report ends up in `docs` and follows the template given in the previous labs.
 
-Your alarm clock shall:
+== Experiment 1:  Dumb Terminal for Debugging
 
-* Keep time accurately to the second
-* Keep track of the date
-** Accurately know the number of days in each month
-** Accurately track the day of the week
-** Properly calculate leap years and number of days in February
-* Display the current time and date to the user (24-hour "Military" style)
-** With the UART - *Lab 3*
-** With the LCD - *Lab 4*
-* Be settable by the user
-** Keypad to enter numerical settings like time/day/year
-** A push button for "snoozing" - Meaning a way to temporarily delay the alarm after it has gone off
-** A push button for acknowledging the alarm
-* Be programmable with *at least* two separate alarm times
-* Have a way to alarm the user
-** Visibly - With a blinking LED - *Lab 3*
-** Aurally - With a loud buzzing sound from a speaker with adjustable volume - *Lab 4*
+In this experiment, you will set up the micro-USB port on the STM32WB55 board to be a UART serial communication link.
 
-There is some leeway on how exactly you implement these features. This is a common task in engineering, you are given a list of requirements and you must figure out the best way to put them into practice. This lab assignment will lay out some example design patterns but ultimately it is up to you to implement these features. Feel free to start discussions in the forum to discuss this with other students and the instructors.
+To talk to your computer/laptop, you will need a serial interface program like *PuTTY*, *Kermit*, or *minicom*.  For Windows, the terminal of choice has usually been *puTTY*.  You can search for it or you can find it on the Microsoft Store https://www.microsoft.com/en-us/p/putty-unofficial/9n8pdn6ks0f8?activetab=pivot:overviewtab[here].  For Mac or Linux, either Kermit or Minicom.  I personally use Minicom, but either program will work.  For Mac, either can be installed via Homebrew.  For Linux, check your distribution for how to install programs.  Set the terminal to run in 8 bit, no parity, 1 stop bit (8N1).
 
-==== Specific Lab 4 requirements
+Plug the STM32 Nucleo board into the computer using _both_ USB cables, one in the ST-LINK USB port and the other in the USER USB port.  After a few seconds, the computer should connect with the boards serial port through the User USB.  For Windows, this means that it will be assigned a COM port.  For Linux and Mac, it will be assigned a `/dev/tty.*` device.  In Windows, use the Device Manager to find the COM port for the board.  In Linux/Mac, do a directory listing for `/dev`.  Look for something like `/dev/tty.usbmodem99999` where `99999` could be any set of numbers.  The device file should have the date/time of when you plugged the board in.  Configure the terminal program to use this COM or tty device.
 
-This section lists the specific requirements for this lab so as not to be confused with what was required in Lab 3. Your lab setup must still meet the requirements of lab 3, meaning this are in addition to what was already done previously. The exception being that UART Display and LED Alarm are now optional.
+The hardware block diagram for the https://www.st.com/resource/en/user_manual/dm00517423-bluetooth-low-energy-and-802154-nucleo-pack-based-on-stm32wb-series-microcontrollers-stmicroelectronics.pdf[STM32WB55] is:
 
-1. Interface to the LCD using SPI and use it to display the date, time, and set alarms (plus anything else you want to show)
-* You must also set the brightness through the use pulse width modulation (PWM) of the lite pin (this does not have to be changeable at runtime, for instance using a `#define` setting for a brightness value is sufficient)
-2. Interface to the DAC using I2S and use it to play an alarm tone
-* This tone must be more complicated than a simple square wave; triangle, sawtooth, sine are acceptable as is more complicated tones
-3. Add an additional snooze mode
-* On a long press of the snooze button, the alarm must snooze for *twice* as long as a short button press
-4. Interface the Rotary Encoder for varying the volume of your alarm
+image::images/STM32WB55_Hardware_Block_Diagram.png[width=60%,align=center]
 
-There is an additional requirement of using the ADALM2000 to show the interfaces are working properly. You must:
+Note the USB microB connector at the top of the diagram.  It is connected to the UART port on the microcontroller.  The USB port is on the bottom of the board, marked "USB User":
 
-1. Show that the I2S and SPI interfaces are working properly by using the logic analyzer mode of the ADALM2000 to capture data transfers over these interfaces
-2. Show that your audio output looks correct by using the oscilloscope mode of the ADALM2000 to observe the output of the MAX98357
-* Note that depending on how you probe this signal, you may accidently alter the impedance of the load causing the output to not look right (think about how you would fix this)
+image::images/STM32WB55_Bottom_of_Board.png[width=60%, align=center]
 
-In both cases, including screenshots of this in your lab report fulfills the requirement.
+The "User USB" connector schematic:
 
-This requirement is to help you get better at using test equipment. If you properly instrument your hardware early and often, you can save a lot of debugging later.
+image::images/STM32WB55_USB_Connector.png[width=60%, align=center]
 
-==== Extra Credit
+The UART connection is established over `USB N` and `USB P` lines.  Our board uses USART1 through the USB port.
 
-TIP: Optionally, you can add whatever *additional* features you like to this. If you implement features above and beyond this baseline we will add extra credit equivalent to the effort/creativity put in to them. You can not get over 100, but what the extra credit will do is allow you lose points in some other areas and still make it possible to get a perfect score. The maximum extra points available is *10 points*, so one full letter grade. To get this max amount the features added must be exceptional.
+Set up a new STM32 project called `UART_Over_USB`.  Initialize the default peripherals, save the .ioc file and generate the default code.
 
-An example for Lab 4: Have the alarm play musical notes (hint: this will be useful later) or use the touchscreen on the LCD as a pushbutton (this will require hooking up extra LCD pins).
+In `main.c`, use the Find function to find all of the instances of `USART1`.  Make sure that the interface is configured to be asynchronous.
 
-== Hardware Setup
+If you choose to initialize peripherals to default when creating the project then the UART should already be using the correct pins on the micro controller. You can check this yourself though by looking at the user manual and tracing which pins go to the USB/UART interface to the computer. There are stand alone devices that can do this (common ones are made by FTDI and Cypress), so if you had one of these you would need to pick alternate pins and hook it up accordingly.
 
-=== Parts list
+image::images/STM32CubeIDE_Device_Config_USART1.png[width=100%, align=center]
 
-You should still have everything from lab 3 built, so this list is what you need *in addition* to what you already have. Hopefully you left room on your breadboard.
+This is the default configuration for our Nucleo board for the USART1 port.  Go to "Connectivity" in the "Pinout & Configuration" window.  In that list, look for "USART1".  Make sure the mode is set to "Asynchronous" and the Hardware Flow Control (RS232) is set to "Disable".  In the Parameter Settings, you will notice the Baud Rate, Word Length, Parity, and Stop Bits.  Make sure that it is set to 115200 Bits/s, 8 Bits (including parity bit), None for parity, and 1 stop bit.  Save the configuration and allow the IDE to generate new code.
 
-Here are the required parts that you will need from your kit for this lab:
+image::images/STM32CubeIDE_USART1_Parameter_Settings.png[width=100%, align=center]
 
-* LCD
-* I2S DAC Amplifier Combo
-* Speaker
-* Rotary Encoder
+Go into `main.c`.  In the main block, add the following two lines of code:
 
-=== Hardware Assembly and Setup
+```
+/* Initialize all configured peripherals */
+MX_GPIO_Init();
+MX_USART1_UART_Init();
+MX_USB_PCD_Init();
+/* USER CODE BEGIN 2 */
 
-You should still have your lab 3 setup assembled. All of the hardware used in this lab will be in addition to the hardware you set up last time.
+/* USER CODE END 2 */
+uint8_t data[]="Hello World!\r\n";
+HAL_UART_Transmit(&huart1, data, sizeof(data), HAL_MAX_DELAY);
+/* Infinite loop */
+/* USER CODE BEGIN WHILE */
+while (1)
+{
+  /* USER CODE END WHILE */
 
-==== 3.2" LCD with ILI9341 Driver
+  /* USER CODE BEGIN 3 */
+}
+/* USER CODE END 3 */
+```
 
-LCD's are typically tricky to drive, but with the provided breakout board much of the complexity is taken care of already. This device presents a standard SPI interface that is straightforward to control from a microcontroller.
+Note that you only need to add two lines.  Go to Projects > Build Project.  Make sure your code compiles with no errors.  Run the code or debug the code with your terminal program running and the User USB connected.  You should see the Hello World message, if you've configured everything properly.
 
-Hardware wise there are a few things that *must* be hooked up:
+The `HAL_UART_Transmit` function transmits data over the serial port.  `HAL_UART_Receive` receives data over the serial port.  You now have a way to communicate directly with your Nucleo board.
 
-1. Power and Ground
-* Make sure to use 3.3 Volts from the microcontroller
-2. SPI Interface including pins MOSI, MISO, Chip Select, Clock
-* It is up to you to locate appropriate pins for this interface since you must find the correct pins that can be configured to the SPI alternate function, this may mean moving some pins around from lab 3
-3. Control Lines including Data/Control and Reset
-* These pins are used to tell the LCD whether you are sending display data or command, and for resetting the LCD respectively and are both standard GPIO
-4. Lite
-* This sets the brightness of the screen, use a PWM capable pin to drive this
+Now, modify your code:
+```
+/* USER CODE END 2 */
+uint8_t data[]="Hello World!\r\n";
+HAL_UART_Transmit(&huart1, data, sizeof(data), HAL_MAX_DELAY);
+/* Infinite loop */
+/* USER CODE BEGIN WHILE */
+while (1)
+{
+  /* USER CODE END WHILE */
+HAL_UART_Receive(&huart1, &c, 1, HAL_MAX_DELAY);
+if (c)
+  HAL_UART_Transmit(&huart1, &c, 1, HAL_MAX_DELAY);
+  /* USER CODE BEGIN 3 */
+}
+```
 
-The function of these pins will be explored more in the lab setup section.
+Run or debug.  You will see that you can type in the terminal and your characters will be echoed back.  If you hit "Return" or "Enter", the code returns back to the first position in the line.  Modify this code so that the carriage return is handled properly; that is, when "Return" or "Enter" is pressed, the cursor advances to the next line.
 
-Pins that can be *ignored*:
+Question:  Why is it called a "carriage return"?
 
-1. IM3,IM2,IM1,IM0
-* These set the mode of the LCD and have been preconfigured for you through the use of solder bridges
-2. 3.3V Out
-* This is an output from an on board voltage regulator and is not needed
-3. Card Detect, and Card CS
-* This is for the on board SD card which we are not using
+Save your project, commit your code.  Close the project.
 
-==== MAX98357 I2S Amp Breakout Board
+== Experiment 2:  ADALM2000
 
-This board has a I2S driven Digital Analog Converter and audio amplifier combination chip on it which greatly simplifies generating audio signals from a microcontroller.
+Watch https://www.youtube.com/watch?v=zWX7VnKDYq4&t=351s[this] video on the ADALM2000 Active Learning Module.  You will be using the signal generator and oscilloscope to create analog signals and watch them in the oscilloscope.  Watch the entire video, then follow along with the video with your ADALM2000.
 
-Just like the LCD, hardware wise there are a few things that *must* be hooked up:
+Save an image of your oscilloscope screen by using the "Print" button and selecting PNG files.  You should end up with something like:
 
-1. Power and Ground
-* Make sure to connect Vin to the *5.0* volts from the microcontroller
-** We are still using 3.3V logic - this setup will give more power for the amp.
-2. I2S Signals
-* LRC (Left/Right Clock) - this is the pin that tells the amplifier when the data is for the left channel and when its for the right channel
-* BCLK (Bit Clock) - This is the pin that tells the amplifier when to read data on the data pin.
-* DIN (Data In) - This is the pin that has the actual data coming in, both left and right data are sent on this pin, the LRC pin indicates when left or right is being transmitted
-* Note: The MAX98357 doesn't require a Master Clock
-* Just like the LCD it is up to you to locate appropriate pins for this interface since you must find the pins that can be configured to the I2S alternate function
+image::images/Scopy-osc-2021-10-21-09-05-29.png[width=60%,align=center]
 
+In STM32CubeIDE, create a new project for your STM32WB55 board called `oscope`.  Using one of the open GPIO pins, write code that generates a 10 kHz square wave.  Measure this square wave using the oscilloscope and Scopy software.  Print out a PNG of the oscilloscope showing the signal.  Detail how you set up the GPIO in your code (even if it comes preconfigured, make sure to detail this in your report.)
 
-And some that do not need to be hooked up:
-1. Mode
-* The breakout board by design puts this in stereo average which is what we want
-2. Gain
-* Gain refers to how much amplification the signal will get and by default it is set to 9 dB which is reasonable for this lab. If you experience excessive distortion or other similar issues than consider lowering the gain by jumpering this to Vin
-* Table 8 in the MAX98357 datasheet lists all gain configurations
+== Experiment 3:  Matrix Keypad
 
+In this experiment, you will interface the 4x4 matrix keypad with the STM32.  There are several ways to do this.  We will use a polling technique that will scan across the columns while turning on one of the rows at a time.
 
-==== Amplifier and Speaker
+This is the general schematic:
 
-In your kit you will have a 1 Watt 8Ω speaker. This is connected to the screw terminal on the breakout board. Make sure to pay attention to the polarity of the speaker when doing this (Red wire to `+`, Black wire to `-`).
+image::images/Arduino-Keypad-Tutorial-4X4-Keypad-Schematic.png[width=100%, align=center]
 
-==== Rotary Encoder
+As Row 1 is SET (and all of the other rows are RESET), poll the columns to see if a key is pressed.  If so, map that key to its value.  Ignore multiple, simultaneous key presses.  Create a project called `keypad` in STM32CubeIDE and write code that outputs keypresses to the UART dumb terminal.  Demonstrate that your code successfully polls the keypad.
 
-The rotary encoder in your kit is of the incremental style, which means it provides relative angular position of the knob. It does this by providing two signals consisting of square waves in quadrature. These square waves can be measured by the microntroller to see which direction and by how much the knob is turned.
+Basic GPIO on a microcontroller is split into two categories: inputs and outputs. You typically configure this when you set up the device configuration, meaning you pick what pins to use and what direction they are expecting (More on the software configuration side of this later). Changing the direction of a pin at runtime after initial configuration is possible, but for most cases it is not needed (but see https://en.wikipedia.org/wiki/Charlieplexing[Charlieplexing] for an interesting use case). It's your job as an engineer to figure out what pins are best used for your design. In this case, the UM2435 reference manual is essential for determining pin selection; it contains tables of pins and their capable functions.
 
+It helps to make a table outlining all the pins and functions that you need with a mapping to what physical pin it is connected to. This combined with a schematic is required for the lab report.
 
-===== Rotary Encoder Theory
+A button matrix is an important part of optimizing embedded system designs, because it reduces the number of pins required to interface to an arbitrary number of buttons.
 
-A rotary encoder has a fixed number of positions per revolution.
-These positions are easily felt as small 'clicks' or 'detents' as you turn the encoder.
-Not every rotary encoder had detents and not all are a one-to-one with encoder resolution and the detents.
+Think of a standard computer keyboard: they typically have 101 keys and if each one of those keys needed a distinct GPIO input on a micro controller then a high pin-count micro controller is needed. These are expensive, and keyboards are made very cheap so a button matrix is used.
 
+So how do they work?
 
-On one side of the switch there are three pins.
-They are normally referred to as A, B and C.
-In the case of the KY-040, they are oriented as shown.
+Instead of each button getting it's own GPIO line, the buttons are laid out in a grid where multiple buttons share the same input and output pins.
 
-image::images\lab4-c7763.png[]
+You must "scan" the rows and columns in order to properly read out the matrix. As mentioned earlier you will pick either the rows or the columns to be outputs and the opposite as inputs. For the rest of this explanation I am choosing the columns to be my outputs and the rows to be my inputs.
 
+A scan involves energizing each individual column sequentially and reading out the rows at each step. For example if Column 2 is energized and you see that Row 3 is "on" then you know that the number 8 (see the schematic) is being pressed.
 
-Inside the encoder there are two switches.
-One switch connects pin A to pin C and the other switch connects pin B to C (see schematic in KY-040 Rotary Encoder Pinout)
+There are a few implementation details that you will have to work out on your own. For instance: when will you scan the keypad? You can periodically scan the keypad using a timer interrupt, or you can try using pin interrupts and only scan when you need to. A poor implementation of this can hog all your processor time, and you don't want to miss that time keeping interrupt!
 
-In the case of the KY-040 each 'detents' puts the switches in a state where both switches are open or both switches are closed.
+Other considerations include key ghosting and bounce. This is when it is ambiguous as to what key was pressed due to multiple keys being pressed at the same time. This can be solved in hardware using diodes to prevent signals from shorting together but these cost money (and are not included in your kit). Also, since these are normal buttons, debounce must also be accounted for.
 
-However, as you can see in the image below, inbetween the 'detents' switch A will lead or follow switch B depending on the direction of rotation.
+Without the diodes, mashing multiple buttons you will short out the several of the output pins (look at the schematic and make sure you understand why that is). This is safe on the STM32 chips since the output pins are current limited, but this might not always be the case so be careful when working with other devices.
 
+Once you have demonstrated that you can detect the button and assign it a value, create another project called `calc`.  In this project, you will pull everything together and make a calculator that uses the number buttons to enter in the numbers.  The *A* button will represent add and the *B* button will represent subtract.  The *C* button will represent clear and the *D* button will represent equals.  Create a basic calculator, pushing the output to the UART terminal.
 
-image::images\lab4-4e167.png[]
+Take screenshots of your terminal window, showing some examples of both addition and subtraction.  You should be able to do this for any number of addends or subtrahends.  For example, your calculator should be able to do _100 + 200 + 300 + 400 = 1000_ as well as _200 - 100 = 100_.  Combinations of operators should also be possible:  _500 + 200 - 300 = 400_.  Order of operations are from left to right.  No parentheses.  Consider _only_ integers (both negative and positive).  Do not concern yourself with float point numbers for this experiment.
 
+A complete lab report will contain a schematic, a flowchart, a table showing the GPIO pins used, and appropriate output.
 
-* Rotating the switch clockwise will cause the switch connecting A and C to change states first.
-* Rotating the switch counterclockwise will cause the switch connecting B and C to change states first.
-
-If we were to represent the opening an closing of the switches as wave forms, it would look something like this.
-
-
-image::images\lab4-820e8.png[]
-
-Essentially, determining which switch changed states first is how the direction of rotation is determined.
-
-If A changed states first, the switch is rotating in a clockwise direction.
-If B changed states first, the switch is rotating in a counter clockwise direction.
-
-
-Credit: http://henrysbench.capnfatz.com/henrys-bench/arduino-sensors-and-input/keyes-ky-040-arduino-rotary-encoder-user-manual/
-
-===== KY-040 Rotary Encoder Pinout
-
-image::images\lab4-b37d8.png[]
-
-image::images\lab4-87ceb.png[]
-
-NOTE: R2 and R3 Provide 10K pullups for our encoder pins.  R1 (for the switch) is not populated on our KY-040 Board
-
-
-It has five pins:
-
-1. Power (+)
-* Make sure to feed it the IO voltage level and not 5 volts
-2. Ground
-3. Clk and DT
-* These are the two signal lines and must be connected to Timer channel pins (more on this later)
-4. SW
-* This is a pin for pushbutton that is activated when you push the knob
-* It is not required to use this functionality unless you need an extra pushbutton
-
-
-
-
-== Lab Setup
-
-Build off from your STM32CubeIDE project from lab 3 as a base.
-
-You will have to manually copy the files into your new git repository.
-There are ways to keep the commit history of this work in a new repository, but this is not required.
-
-
-=== Interfacing with the LCD
-
-The basic idea for interfacing with the LCD is that it uses a standard SPI interface with some extra control used for various functions. The screen itself is complicated to drive so it uses an ILI9341 chip to do the heavy lifting. Since the ILI9341 is what is actually interfacing to the LCD you must read the datasheet on it to fully understand what sort of features you have access to.
-
-Refer to the datasheet in reference 8 for more in depth information. Also, reference 9 contains an example implementation for interfacing with the LCD, but if you use it make sure to properly attribute it in your lab report.
-
-
-==== Example Driver / Workspace
-
-There are many different example drivers avaiable on the internet for this LCD.
-We have included links to a few of them in the References section below.
-Additionally we have provide a sample in this repository.
-
-NOTE: The use of the include sample driver is completely optional.
-
-The included driver is a hybrid of a few different drivers and some custom logic.
-It works, but it should be refactored some to make it cleaner.
-See the `reference\ili9341-dev` area at the top of this repository.
-
-
-==== SPI
-
-SPI is a synchronous serial interface, which is fast enough to be used for a huge variety of peripherals. For the LCD there are just a few things to consider when implenting your system:
-
-1. Clock phase and polarity - These settings tell the microcontroller how to sample the data coming in over the data lines. They much match the settings on the device you are trying to talk to.
-* If you are using HAL, then the correct settings for the SPI are SPI_POLARITY_LOW and SPI_PHASE_1EDGE for polarity and phase respectively
-2. Clock speed - Ultimately, interface speed is the result of several settings across different parts of the microcontroller. How you set the up the clock generation, and clock sourcing set the clock speed going into the SPI peripheral, and the peripheral itself has a clock divider setting for slowing down the rate set by this input clock.
-* Set this as fast as you can while still having it work (meaning start slow and work your way up)
-3. Chip select settings - Since SPI is a shared bus, you have to tell a peripheral that you are ready to talk to it. This is done with a GPIO typically called Chip Select (CS). This GPIO can be either handled by the SPI peripheral (i.e. Hardware CS) or manually in your code (i.e. Software CS).
-* For this project you want to use software chip select due to the specifics of driving this chip (see the datasheet for more info)
-
-These issues are a common cause for problems when setting a SPI interface up. Other things to check if you are having issues is the wiring (don't mix up MOSI and MISO !), and make sure your chip select is "firing" correctly. Use your ADALM2000 to measure these signals to help you debug.
-
-=== Interfacing with the MAX98357 I2S Amp Breakout
-
-The MAX98357 breakout board in your kit has a combination Digital to Analog Converter (DAC) and audio amplifier. Since this device is specifically for audio signals it uses the I2S protocol which is a simplified purpose built protocol for connecting to audio devices. The STM32 has support for this interface through its Serial Audio Interface (SAI) peripheral.
-
-==== I2S
-
-The Serial audio interface (outlined section 36 in RM0434) is the peripheral in the STM32 that supports the I2S interface. When using the device configuration tool, configure one of the SAI peripherals (A or B, which one doesn't matter) to use the I2S/PCM protocol.
-
-NOTE: Read the SAI section in RM0434 to see how to optimally use this peripheral. Since you are using relatively simple samples (e.g. pure sine wave, or triangle wave) you want to use the DMA mode. Your samples can live in a buffer in memory and be repeatedly transferred automatically by the SAI peripheral.
-
-=== UART Interfacing
-
-Feel free to continue to use the UART for debugging purposes, but you must still output all relevant information to the LCD.
-
-=== GPIO Interfacing
-
-You will need to use a timer to determine if a button press is short or long. You may decide what the cut off amount of time is, but you must have two distinct button press outcomes for at least one of the push buttons.
-
-==== Rotary Encoder
-
-Interfacing with the rotary encoder also uses GPIO, but is somewhat of a special case.
-The encoders CLK and DT pins should be wired to pins that have an alternate function capable of driving the timer peripheral channels.
-These are labeled TIMn_CH0 and TIMn_CH1, where n is the timer you are using.
-The encoder (for this development board anyway) always uses the first two channels of the timer.
-
-In the device configurator, select one of the Timers and set it to "Encoder Mode" under the "Combined Channels" drop down box.
-You will see that two pins will be assigned in the Pin out View.
-Make sure these are correct (or set them yourself if you want to use different pins).
-Once it has been configured, you read the count register of the Timer to get the position of the knob.
-
-For this lab you will use this position value to scale your audio samples for adjusting the volume.
-
-=== FreeRTOS usage
-
-FreeRTOS usage is *encouraged* but optional. This is a pretty good application for it (keeping time is definitely a real-time class of problem) but it will be harder to implement so try not to get trapped with a design at the last second that doesn't work and needs to be rewritten from scratch.
-
-<<<
+You are welcome to use the oscilloscope to debug the hardware.  Document this in your lab report, if needed.
 
 == References
 
